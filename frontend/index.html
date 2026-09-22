@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spend Tracker</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #111; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    form, section { margin-bottom: 1.5rem; }
+    label { display: block; margin: 0.5rem 0 0.2rem; }
+    input { width: 100%; padding: 0.4rem; box-sizing: border-box; }
+    button { margin-top: 0.75rem; padding: 0.5rem 0.9rem; }
+    .error { color: #b00020; }
+    .insight { background: #fff3cd; padding: 0.5rem 0.75rem; margin: 0.4rem 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; border-bottom: 1px solid #ddd; padding: 0.35rem; }
+  </style>
+</head>
+<body>
+  <h1>Spend Tracker</h1>
+  <p>Add an expense and see totals, category spend, and month-over-month change.</p>
+
+  <section>
+    <label for="apiKey">API key</label>
+    <input id="apiKey" type="password" autocomplete="off" />
+  </section>
+
+  <form id="expense-form">
+    <label for="amount">Amount</label>
+    <input id="amount" type="number" step="0.01" min="0.01" required />
+    <label for="category">Category</label>
+    <input id="category" required maxlength="64" />
+    <label for="note">Note</label>
+    <input id="note" maxlength="500" />
+    <label for="date">Date</label>
+    <input id="date" type="date" required />
+    <button type="submit">Add expense</button>
+  </form>
+  <p id="status" class="error"></p>
+
+  <section>
+    <h2>Summary</h2>
+    <p id="totals"></p>
+    <div id="insights"></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>All time</th>
+          <th>This month</th>
+          <th>Last month</th>
+          <th>MoM</th>
+        </tr>
+      </thead>
+      <tbody id="by-category"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const apiKeyInput = document.getElementById("apiKey");
+    apiKeyInput.value = localStorage.getItem("apiKey") || "dev-secret-key";
+    document.getElementById("date").valueAsDate = new Date();
+
+    function headers() {
+      const key = apiKeyInput.value.trim();
+      localStorage.setItem("apiKey", key);
+      return { "Content-Type": "application/json", "X-API-Key": key };
+    }
+
+    function setStatus(message) {
+      document.getElementById("status").textContent = message || "";
+    }
+
+    async function loadSummary() {
+      const response = await fetch("/summary", { headers: headers() });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setStatus(body.detail || "Could not load summary. Check the API key.");
+        return;
+      }
+      setStatus("");
+      const data = await response.json();
+      const mom = data.month_over_month;
+      const pct = mom.change_pct === null ? "n/a" : mom.change_pct + "%";
+      document.getElementById("totals").textContent =
+        `Total spend: ${data.total_spend}. This month (${mom.current_month}): ${mom.current_total}. ` +
+        `Last month (${mom.previous_month}): ${mom.previous_total}. Change: ${mom.change_amount} (${pct}).`;
+
+      document.getElementById("insights").innerHTML = data.insights
+        .map((item) => `<div class="insight">${item.message}</div>`)
+        .join("");
+
+      document.getElementById("by-category").innerHTML = data.by_category
+        .map((row) => {
+          const momPct = row.month_over_month_pct === null ? "n/a" : row.month_over_month_pct + "%";
+          return `<tr>
+            <td>${row.category}${row.increased_over_20_pct ? " ⚠" : ""}</td>
+            <td>${row.total}</td>
+            <td>${row.current_month}</td>
+            <td>${row.previous_month}</td>
+            <td>${momPct}</td>
+          </tr>`;
+        })
+        .join("");
+    }
+
+    document.getElementById("expense-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = {
+        amount: Number(document.getElementById("amount").value),
+        category: document.getElementById("category").value,
+        note: document.getElementById("note").value || null,
+        date: document.getElementById("date").value,
+      };
+      const response = await fetch("/expenses", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(body.detail ? JSON.stringify(body.detail) : "Could not save expense.");
+        return;
+      }
+      document.getElementById("amount").value = "";
+      document.getElementById("note").value = "";
+      await loadSummary();
+    });
+
+    apiKeyInput.addEventListener("change", loadSummary);
+    loadSummary();
+  </script>
+</body>
+</html>

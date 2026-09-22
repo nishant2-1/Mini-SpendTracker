@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: mini-spend-tracker
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: API_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///./spend_tracker.db
