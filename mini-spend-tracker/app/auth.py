@@ -14,5 +14,4 @@ def require_api_key(api_key: str = Security(api_key_header)):
         )
     return api_key
 
-# Alias in case another module looks for get_api_key
 get_api_key = require_api_key
