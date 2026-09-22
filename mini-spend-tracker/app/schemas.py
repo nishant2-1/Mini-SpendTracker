@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator
 from datetime import date
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 class ExpenseCreate(BaseModel):
     amount: float
@@ -27,3 +27,13 @@ class ExpenseResponse(BaseModel):
         from_attributes = True
 
 ExpenseOut = ExpenseResponse
+
+class CategorySummary(BaseModel):
+    category: str
+    all_time: float
+    this_month: float
+    last_month: float
+    mom_change: str
+
+class SummaryOut(BaseModel):
+    by_category: List[CategorySummary]
