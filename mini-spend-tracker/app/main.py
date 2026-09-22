@@ -6,7 +6,8 @@ import os
 from app.database import engine, Base
 from app.routers import expenses, summary
 
-# Ensure tables match models
+# Force drop existing tables to fix missing user_id column in legacy SQLite file
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Spend Tracker API")
