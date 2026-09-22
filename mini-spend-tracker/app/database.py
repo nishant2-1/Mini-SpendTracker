@@ -1,32 +1,17 @@
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-from app.config import settings
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
+# For SQLite on Render
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
 
-def normalize_database_url(url: str) -> str:
-    """Accept Render/Heroku postgres:// URLs and prefer the psycopg3 driver."""
-    if url.startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://") :]
-    if url.startswith("postgresql://") and "+psycopg" not in url:
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    return url
-
-
-database_url = normalize_database_url(settings.database_url)
-connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-
-engine = create_engine(
-    database_url,
-    connect_args=connect_args,
-    pool_pre_ping=not database_url.startswith("sqlite"),
-)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-class Base(DeclarativeBase):
-    pass
-
+Base = declarative_base()
 
 def get_db():
     db = SessionLocal()
